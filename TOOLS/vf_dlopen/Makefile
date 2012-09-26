@@ -1,4 +1,4 @@
-FILTERS = showqscale telecine tile rectangle
+FILTERS = showqscale telecine tile rectangle test1
 COMMON = filterutils.o
 
 OBJECTS = $(patsubst %,%.o,$(FILTERS)) $(COMMON)
