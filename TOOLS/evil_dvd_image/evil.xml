@@ -1,0 +1,14 @@
+<dvdauthor format="pal">
+	<!-- TODO vmgm, menus -->
+	<titleset>
+		<!-- TODO menus -->
+		<titles>
+			<video />
+			<audio lang="en" content="normal" />
+			<pgc pause="2">
+				<vob file="pal-full.vob" />
+				<vob file="pal-full.vob" />
+			</pgc>
+		</titles>
+	</titleset>
+</dvdauthor>
