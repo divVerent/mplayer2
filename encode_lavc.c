@@ -140,34 +140,12 @@ struct encode_lavc_context *encode_lavc_init(struct encode_output_conf *options)
     encode_lavc_discontinuity(ctx);
     ctx->options = options;
 
-    ctx->avc = avformat_alloc_context();
-
-    if (ctx->options->format) {
-        char *tok;
-        const char *in = ctx->options->format;
-        while (*in) {
-            tok = av_get_token(&in, ",");
-            ctx->vc = avcodec_find_encoder_by_name(tok);
-            ctx->avc->oformat = av_guess_format(tok, ctx->options->file, NULL);
-            av_free(tok);
-            if (ctx->avc->oformat)
-                ctx->vc = NULL;
-            if (ctx->vc)
-                break;
-            if (*in)
-                ++in;
-        }
-    } else {
-        ctx->avc->oformat = av_guess_format(NULL, ctx->options->file, NULL);
-    }
-
-    if (!ctx->avc->oformat) {
-        encode_lavc_fail(ctx, "encode-lavc: format not found\n");
+    ctx->avc = NULL;
+    avformat_alloc_output_context2(&ctx->avc, NULL, ctx->options->format, ctx->options->file);
+    if (!ctx->avc) {
+        encode_lavc_fail(ctx, "encode-lavc: avformat context allocation failed\n");
         return NULL;
     }
-
-    av_strlcpy(ctx->avc->filename, ctx->options->file,
-               sizeof(ctx->avc->filename));
 
     ctx->foptions = NULL;
     if (ctx->options->fopts) {
@@ -418,7 +396,6 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
     AVStream *stream = NULL;
     char **p;
     int i;
-    AVCodecContext *dummy;
 
     CHECK_FAIL(ctx, NULL);
 
@@ -469,7 +446,8 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             encode_lavc_fail(ctx, "vo-lavc: encoder not found\n");
             return NULL;
         }
-        stream = avformat_new_stream(ctx->avc, ctx->vc);
+        stream = avformat_new_stream(ctx->avc, NULL);
+        avcodec_get_context_defaults3(stream->codec, ctx->vc);
 
         // stream->time_base = ctx->timebase;
         // doing this breaks mpeg2ts in ffmpeg
@@ -480,38 +458,29 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
         stream->codec->time_base = ctx->timebase;
         stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
 
-        dummy = avcodec_alloc_context3(ctx->vc);
-        dummy->codec = ctx->vc; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
-        // FIXME:
-        // currently, to eradicate this dummy:
-        // add here: stream->codec->codec = ctx->vc; // SAME PROBLEM AS ABOVE
-        // replace dummy by stream->codec
-        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
-
         ctx->voptions = NULL;
 
         // libx264: default to preset=medium
         if (!strcmp(ctx->vc->name, "libx264"))
-            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "preset=medium", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->voptions, stream->codec, "preset=medium", "=", "");
 
         if (ctx->options->vopts)
             for (p = ctx->options->vopts; *p; ++p)
-                if (set_to_avdictionary(stream->codec, &ctx->voptions, dummy,
+                if (set_to_avdictionary(stream->codec, &ctx->voptions, stream->codec,
                         *p, "=", "") <= 0)
                     mp_msg(MSGT_ENCODE, MSGL_WARN,
                            "vo-lavc: could not set option %s\n", *p);
 
         de = av_dict_get(ctx->voptions, "global_quality", NULL, 0);
         if(de)
-            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "flags=+qscale", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->voptions, stream->codec, "flags=+qscale", "=", "");
 
         if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
-            set_to_avdictionary(stream->codec, &ctx->voptions, dummy, "flags=+global_header", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->voptions, stream->codec, "flags=+global_header", "=", "");
 
-        encode_2pass_prepare(ctx, &ctx->voptions, dummy, stream, &ctx->twopass_bytebuffer_v,
+        encode_2pass_prepare(ctx, &ctx->voptions, stream->codec, stream, &ctx->twopass_bytebuffer_v,
                              "vo-lavc");
 
-        av_free(dummy);
         break;
 
     case AVMEDIA_TYPE_AUDIO:
@@ -519,40 +488,32 @@ AVStream *encode_lavc_alloc_stream(struct encode_lavc_context *ctx,
             encode_lavc_fail(ctx, "ao-lavc: encoder not found\n");
             return NULL;
         }
-        stream = avformat_new_stream(ctx->avc, ctx->ac);
+        stream = avformat_new_stream(ctx->avc, NULL);
+        avcodec_get_context_defaults3(stream->codec, ctx->ac);
 
         stream->codec->codec_id = ctx->ac->id;
         stream->codec->time_base = ctx->timebase;
         stream->codec->codec_type = AVMEDIA_TYPE_AUDIO;
 
-        dummy = avcodec_alloc_context3(ctx->ac);
-        dummy->codec = ctx->ac; // FIXME remove this once we can, caused by a bug in libav, elenril is aware of this
-        // FIXME:
-        // currently, to eradicate this dummy:
-        // add here: stream->codec->codec = ctx->ac; // SAME PROBLEM AS ABOVE
-        // replace dummy by stream->codec
-        // at the end of this block: stream->codec->codec = NULL; // OR SEGV LATER
-
         ctx->aoptions = NULL;
 
         if (ctx->options->aopts)
             for (p = ctx->options->aopts; *p; ++p)
-                if (set_to_avdictionary(stream->codec, &ctx->aoptions, dummy,
+                if (set_to_avdictionary(stream->codec, &ctx->aoptions, stream->codec,
                         *p, "=", "") <= 0)
                     mp_msg(MSGT_ENCODE, MSGL_WARN,
                            "ao-lavc: could not set option %s\n", *p);
 
         de = av_dict_get(ctx->aoptions, "global_quality", NULL, 0);
         if(de)
-            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+qscale", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->aoptions, stream->codec, "flags=+qscale", "=", "");
 
         if (ctx->avc->oformat->flags & AVFMT_GLOBALHEADER)
-            set_to_avdictionary(stream->codec, &ctx->aoptions, dummy, "flags=+global_header", "=", "");
+            set_to_avdictionary(stream->codec, &ctx->aoptions, stream->codec, "flags=+global_header", "=", "");
 
-        encode_2pass_prepare(ctx, &ctx->aoptions, dummy, stream, &ctx->twopass_bytebuffer_a,
+        encode_2pass_prepare(ctx, &ctx->aoptions, stream->codec, stream, &ctx->twopass_bytebuffer_a,
                              "ao-lavc");
 
-        av_free(dummy);
         break;
 
     default:
