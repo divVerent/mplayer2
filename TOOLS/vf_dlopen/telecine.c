@@ -11,7 +11,7 @@
 /*
  * telecine filter
  *
- * usage: -vf dlopen=./telecine.so:t:32
+ * usage: -vf dlopen=./telecine.so:t:23
  *
  * Parameter: first parameter is "t" for top field first, "b" for bottom field first
  * then digits (0-9) for how many fields a frame is to be displayed

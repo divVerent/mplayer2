@@ -3,17 +3,25 @@
 trap 'killall mplayer; exit' INT
 
 sox -n audio.wav synth 42 sin 440-880
-for frametype in telecine progressive interlaced; do
-	for size in full normal half quarter; do
-		for norm in pal ntsc; do
+for size in full normal half quarter; do
+	for norm in pal ntsc; do
+		for frametype in telecine23 telecine2332 progressive interlaced; do
 			for aspect in 16_9 4_3; do
 				f=$norm-$size-$aspect-$frametype.vob
 
 				[ -f "$f" ] && continue
 
 				case "$f" in
-					pal-*-telecine.vob)
-						# this combination does not exist
+					pal-*-telecine*.vob)
+						# this combination does not exist (telecine is NTSC crap)
+						continue
+						;;
+					ntsc-quarter-*-telecine*.vob)
+						# this combination does not exist (interlace barrier)
+						continue
+						;;
+					ntsc-quarter-*-interlaced.vob)
+						# this combination does not exist (interlace barrier)
 						continue
 						;;
 				esac
@@ -23,7 +31,7 @@ for frametype in telecine progressive interlaced; do
 				case "$f" in
 					pal-*)
 						fps1=25
-						fps2=50
+						fps2=25
 						fps3=50
 						;;
 					ntsc-*-progressive.vob)
@@ -98,7 +106,12 @@ for frametype in telecine progressive interlaced; do
 						fpso=$fps2
 						set -- "$@" --vf-add=dlopen=../vf_dlopen/telecine.so:t:11
 						;;
-					*-telecine.vob)
+					*-telecine23.vob)
+						fpsi=$fps1
+						fpso=$fps2
+						set -- "$@" --vf-add=dlopen=../vf_dlopen/telecine.so:t:23
+						;;
+					*-telecine2332.vob)
 						fpsi=$fps1
 						fpso=$fps2
 						set -- "$@" --vf-add=dlopen=../vf_dlopen/telecine.so:t:2332
@@ -107,9 +120,10 @@ for frametype in telecine progressive interlaced; do
 
 				set -- "$@" --rawvideo=w=$w:h=$h:fps=$fpsi:format=rgb24 --profile=enc-to-dvd$norm --ofps=$fpso
 
+				echo "$@"
 				"$@" &
 			done
 		done
-		wait
 	done
+	wait
 done
