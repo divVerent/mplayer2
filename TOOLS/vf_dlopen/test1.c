@@ -175,15 +175,15 @@ static unsigned char testimage_pixel(struct vf_dlopen_context *ctx, int px, int 
 
         // grid
         {
-            int ax = px + (int) x;
-            int ay = py + (int) y;
-            if (ax == 0)
+            int ax = ((int) x) - px;
+            int ay = ((int) y) - py;
+            if (ax == 0 || ax == 1)
                 newc = WHITE;
-            else if (ay == 0)
+            else if (ay == 0 || ay == 1)
                 newc = WHITE;
-            else if (ax % priv->gridspacing_x == 0)
+            else if (abs(ax) % priv->gridspacing_x <= 1)
                 newc = GREY;
-            else if (ay % priv->gridspacing_y == 0)
+            else if (abs(ay) % priv->gridspacing_y <= 1)
                 newc = GREY;
         }
     }
@@ -297,8 +297,8 @@ static int put_image(struct vf_dlopen_context *ctx)
     struct vf_dlopen_picdata *out = &ctx->outpic[0];
 
     // 15 seconds for a complete round
-    int px = -(priv->circle_mx + cos(in->pts * M_PI / 7.5) * (priv->circle_rx + priv->circle_rx2) / 2);
-    int py = -(priv->circle_my + sin(in->pts * M_PI / 7.5) * (priv->circle_ry + priv->circle_ry2) / 2);
+    int px = rint(priv->circle_mx + cos(in->pts * M_PI / 7.5) * (priv->circle_rx + priv->circle_rx2) / 2 - 0.5);
+    int py = rint(priv->circle_my + sin(in->pts * M_PI / 7.5) * (priv->circle_ry + priv->circle_ry2) / 2 - 0.5);
 
     // build the pts string
     char ptsbuf[17];
