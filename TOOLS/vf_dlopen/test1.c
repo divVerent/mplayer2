@@ -146,7 +146,7 @@ char lcd[9][5] = {
     " 666 "
 };
 
-char digits[12] = {
+char digits[13] = {
     0167, // 0
     0044, // 1
     0135, // 2
@@ -158,7 +158,8 @@ char digits[12] = {
     0177, // 8
     0157, // 9
     0100, // .
-    0110  // :
+    0110, // :
+    0010  // -
 };
 
 static unsigned char testimage_pixel(struct vf_dlopen_context *ctx, int px, int py, const char *ptsbuf, unsigned p, unsigned x, unsigned y, unsigned char c)
@@ -236,6 +237,8 @@ static unsigned char testimage_pixel(struct vf_dlopen_context *ctx, int px, int 
                                 newc = (digits[10] & (1 << (segment - '0'))) ? WHITE : BLACK;
                             else if (digit == ':')
                                 newc = (digits[11] & (1 << (segment - '0'))) ? WHITE : BLACK;
+                            else if (digit == '-')
+                                newc = (digits[12] & (1 << (segment - '0'))) ? WHITE : BLACK;
                             else
                                 newc = BLACK;
                         }
@@ -303,9 +306,12 @@ static int put_image(struct vf_dlopen_context *ctx)
     // build the pts string
     char ptsbuf[17];
     long milliseconds = lrint(in->pts * 1000);
+    long sign = (milliseconds >= 0) ? +1 : -1;
+    milliseconds *= sign;
     memset(ptsbuf, 0, sizeof(ptsbuf));
-    snprintf(ptsbuf, sizeof(ptsbuf), "%6.6ld:%02ld:%02ld.%03ld",
-            milliseconds / 3600000,
+    snprintf(ptsbuf, sizeof(ptsbuf), "%c%05ld:%02ld:%02ld.%03ld",
+            (sign >= 0) ? (int) ('0' + ((milliseconds % 3600000000000) / 360000000000)) : '-',
+            (milliseconds % 360000000000) / 3600000,
             (milliseconds % 3600000) / 60000,
             (milliseconds % 60000) / 1000,
             milliseconds % 1000);
