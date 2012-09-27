@@ -3,7 +3,7 @@
 trap 'killall mplayer; exit' INT
 
 sox -n audio.wav synth 42 sin 440-880
-for frametype in progressive interlaced telecine; do
+for frametype in telecine progressive interlaced; do
 	for size in full normal half quarter; do
 		for norm in pal ntsc; do
 			for aspect in 16_9 4_3; do
@@ -98,14 +98,14 @@ for frametype in progressive interlaced telecine; do
 						fpso=$fps2
 						set -- "$@" --vf-add=dlopen=../vf_dlopen/telecine.so:t:11
 						;;
-					*-telecined.vob)
+					*-telecine.vob)
 						fpsi=$fps1
 						fpso=$fps2
 						set -- "$@" --vf-add=dlopen=../vf_dlopen/telecine.so:t:2332
 						;;
 				esac
 
-				set -- "$@" --rawvideo=w=$w:h=$h:fps=$fpsi:format=rgb24 --ofps=$fpso --profile=enc-to-dvd$norm
+				set -- "$@" --rawvideo=w=$w:h=$h:fps=$fpsi:format=rgb24 --profile=enc-to-dvd$norm --ofps=$fpso
 
 				"$@" &
 			done
