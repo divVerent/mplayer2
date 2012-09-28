@@ -301,6 +301,8 @@ SRCS_MPLAYER-$(VDPAU)         += libvo/vo_vdpau.c
 SRCS_MPLAYER-$(X11)           += libvo/vo_x11.c libvo/x11_common.c
 SRCS_MPLAYER-$(XV)            += libvo/vo_xv.c
 
+SRCS_MPLAYER-$(LUAJIT)        += libmpcodecs/vf_lua.c
+
 SRCS_MPLAYER = command.c \
                m_property.c \
                mixer.c \
@@ -418,6 +420,10 @@ libmpdemux/ebml_defs.c: TOOLS/matroska.py
 
 libvo/vo_gl3.c: libvo/vo_gl3_shaders.h
 libvo/vo_gl3_shaders.h: TOOLS/file2string.py libvo/vo_gl3_shaders.glsl
+	./$^ >$@
+
+libmpcodecs/vf_lua.c: libmpcodecs/vf_lua_lib.h
+libmpcodecs/vf_lua_lib.h: TOOLS/file2string.py libmpcodecs/vf_lua_lib.lua
 	./$^ >$@
 
 sub/osd_libass.c: sub/osd_font.h
